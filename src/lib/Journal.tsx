@@ -66,89 +66,57 @@ export default ({ screens, setScreens }: IJournal) => {
 
   const resetScreens = useCallback(() => setScreens([]), [setScreens])
 
-  const removeColor = useCallback(
-    (color: [number, number, number]) => {
-      const im = ctx.getImageData(0, 0, cv.width, cv.height)
-      const { data } = im
-
-      const isApprox = (a: number, b: number, range: number) => {
-        const d = a - b
-        return d < range && d > -range
-      }
-
-      for (var i = 0, n = data.length; i < n; i += 4) {
-        if (
-          isApprox(data[i], color[0], 155) &&
-          isApprox(data[i + 1], color[1], 155) &&
-          isApprox(data[i + 2], color[2], 155)
-        ) {
-          data[i + 3] = 0
-        }
-      }
-
-      ctx.putImageData(im, 0, 0)
-    },
-    [cv, ctx]
-  )
-
   const analyze = useCallback(
     async ({ currentTarget }) => {
-      const $img = currentTarget.offsetParent.querySelector(
+      const $out = document.querySelector('#analyze img') as HTMLImageElement
+      const $in = currentTarget.offsetParent.querySelector(
         'img'
       ) as HTMLImageElement
-      const $out = document.querySelector('#analyze img') as HTMLImageElement
 
-      cv.width = $img.naturalWidth
-      cv.height = $img.naturalHeight
+      cv.width = $in.naturalWidth
+      cv.height = $in.naturalHeight
 
       const worker = window.Tesseract.createWorker({
         logger: console.log
       })
 
-      const draw = async (
-        { top = 0, right = 0, bottom = 0, left = 0 },
-        work = false
-      ) => {
+      const draw = async ({ top = 0, right = 0, bottom = 0, left = 0 }) => {
         ctx.clearRect(0, 0, cv.width, cv.height)
 
-        cv.width = $img.naturalWidth - right - left
-        cv.height = $img.naturalHeight - top - bottom
+        cv.width = $in.naturalWidth - right - left
+        cv.height = $in.naturalHeight - top - bottom
 
-        ctx.drawImage($img, -left, -top)
-        removeColor([0, 0, 255])
+        ctx.drawImage($in, -left, -top)
 
         $out.src = cv.toDataURL('image/jpeg', 1)
         location.hash = 'analyze'
 
-        if (work) {
-          try {
-            await worker.load()
-            await worker.loadLanguage('eng')
-            await worker.initialize('eng')
-            await worker.setParameters({
-              tessedit_char_whitelist: '0123456789.'
-            })
+        try {
+          await worker.load()
+          await worker.loadLanguage('eng')
+          await worker.initialize('eng')
+          await worker.setParameters({
+            tessedit_char_whitelist: '0123456789.'
+          })
 
-            const res = await worker.recognize($out, {})
-            console.log(res)
+          const res = await worker.recognize(cv, {})
+          await worker.terminate()
 
-            await worker.terminate()
-          } catch (err) {
-            console.error(err)
-          }
+          console.log(res)
+        } catch (err) {
+          console.error(err)
         }
       }
 
-      draw(
-        {
-          top: cv.height / 2,
-          bottom: cv.height / 2.8,
-          left: cv.width * 0.94
-        },
-        true
-      )
+      draw({
+        top: 150,
+        bottom: 100,
+        left: cv.width * 0.945,
+        right: 30
+      })
+      ;(window as any).draw = draw
     },
-    [cv, removeColor]
+    [cv, ctx]
   )
 
   return (
