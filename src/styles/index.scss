@@ -1,0 +1,30 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --pad: 3vw;
+  --bg: #fdfdfd;
+}
+
+html {
+  color: #111;
+  font-size: 11px;
+  font-family: monospace;
+  letter-spacing: -0.01em;
+  line-height: 0.8;
+}
+
+body {
+  background: var(--bg);
+}
+
+svg,
+img,
+video {
+  max-width: 100%;
+  margin: auto;
+  vertical-align: middle;
+}

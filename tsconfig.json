@@ -5,7 +5,8 @@
     "lib": ["dom", "DOM.Iterable", "ESNext"],
     "strict": true,
     "jsx": "preserve",
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "typeRoots": ["./node_modules/@types/", "./typings"]
   },
-  "include": ["lib", "src"]
+  "include": ["server", "src", "typings"]
 }
