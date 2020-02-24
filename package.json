@@ -1,0 +1,26 @@
+{
+  "name": "bellpiper",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "dev": "nodemon lib/index.ts",
+    "dev:c": "parcel src/index.html"
+  },
+  "devDependencies": {
+    "@types/node": "^13.7.4",
+    "@types/react": "^16.9.22",
+    "@types/react-dom": "^16.9.5",
+    "@types/ws": "^7.2.1",
+    "nodemon": "^2.0.2",
+    "parcel-bundler": "^1.12.4",
+    "prettier": "^1.19.1",
+    "typescript": "^3.8.2"
+  },
+  "dependencies": {
+    "iohook": "^0.6.5",
+    "react": "^16.0.0",
+    "react-dom": "^16.12.0",
+    "ws": "^7.2.1"
+  }
+}
