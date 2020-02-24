@@ -3,6 +3,8 @@ import { useCallback } from 'react'
 import styled from 'styled-components'
 
 import { IScreen, keyValue } from '.'
+import Lightbox from './Lightbox'
+import useCanvas from './useCanvas'
 
 const Wrapper = styled.section`
   z-index: 2;
@@ -51,70 +53,11 @@ const Wrapper = styled.section`
       visibility: hidden;
     }
   }
-
-  aside[id] {
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    overflow: auto;
-    overscroll-behavior: contain;
-    background: #000000d1;
-
-    &.expanded {
-      justify-content: normal;
-
-      img {
-        max-width: none;
-        max-height: none;
-      }
-    }
-
-    &:not(:target) {
-      display: none;
-    }
-
-    > a {
-      cursor: zoom-out;
-      position: absolute;
-      top: 0;
-      right: 0;
-      left: 0;
-      bottom: 0;
-    }
-
-    figure {
-      padding: var(--pad);
-      margin: auto;
-
-      figcaption {
-        color: #fff;
-
-        strong {
-          position: sticky;
-          left: var(--pad);
-        }
-
-        time {
-          margin-right: auto;
-          margin-left: 1em;
-        }
-      }
-
-      img {
-        max-height: calc(100vh - var(--pad) * 2);
-        margin: auto;
-      }
-    }
-  }
 `
 
 export default ({ screens, setScreens }: IJournal) => {
+  const [cv, ctx] = useCanvas()
+
   const deleteScreen = useCallback(
     (timestamp: IScreen['timestamp']) => () =>
       setScreens(st => st.filter(s => s && s.timestamp !== timestamp)),
@@ -122,6 +65,91 @@ export default ({ screens, setScreens }: IJournal) => {
   )
 
   const resetScreens = useCallback(() => setScreens([]), [setScreens])
+
+  const removeColor = useCallback(
+    (color: [number, number, number]) => {
+      const im = ctx.getImageData(0, 0, cv.width, cv.height)
+      const { data } = im
+
+      const isApprox = (a: number, b: number, range: number) => {
+        const d = a - b
+        return d < range && d > -range
+      }
+
+      for (var i = 0, n = data.length; i < n; i += 4) {
+        if (
+          isApprox(data[i], color[0], 155) &&
+          isApprox(data[i + 1], color[1], 155) &&
+          isApprox(data[i + 2], color[2], 155)
+        ) {
+          data[i + 3] = 0
+        }
+      }
+
+      ctx.putImageData(im, 0, 0)
+    },
+    [cv, ctx]
+  )
+
+  const analyze = useCallback(
+    async ({ currentTarget }) => {
+      const $img = currentTarget.offsetParent.querySelector(
+        'img'
+      ) as HTMLImageElement
+      const $out = document.querySelector('#analyze img') as HTMLImageElement
+
+      cv.width = $img.naturalWidth
+      cv.height = $img.naturalHeight
+
+      const worker = window.Tesseract.createWorker({
+        logger: console.log
+      })
+
+      const draw = async (
+        { top = 0, right = 0, bottom = 0, left = 0 },
+        work = false
+      ) => {
+        ctx.clearRect(0, 0, cv.width, cv.height)
+
+        cv.width = $img.naturalWidth - right - left
+        cv.height = $img.naturalHeight - top - bottom
+
+        ctx.drawImage($img, -left, -top)
+        removeColor([0, 0, 255])
+
+        $out.src = cv.toDataURL('image/jpeg', 1)
+        location.hash = 'analyze'
+
+        if (work) {
+          try {
+            await worker.load()
+            await worker.loadLanguage('eng')
+            await worker.initialize('eng')
+            await worker.setParameters({
+              tessedit_char_whitelist: '0123456789.'
+            })
+
+            const res = await worker.recognize($out, {})
+            console.log(res)
+
+            await worker.terminate()
+          } catch (err) {
+            console.error(err)
+          }
+        }
+      }
+
+      draw(
+        {
+          top: cv.height / 2,
+          bottom: cv.height / 2.8,
+          left: cv.width * 0.94
+        },
+        true
+      )
+    },
+    [cv, removeColor]
+  )
 
   return (
     <Wrapper>
@@ -137,30 +165,26 @@ export default ({ screens, setScreens }: IJournal) => {
               <strong>{keyValue(keycode)}</strong>
               <time>{timestamp}</time>
               <button onClick={deleteScreen(timestamp)}>rm</button>
+              <button onClick={analyze}>anlyz</button>
             </figcaption>
 
             <a href={`#${timestamp}`}>
               <img {...{ src }} />
             </a>
 
-            <aside id={timestamp.toString()}>
-              <a href="#/" />
-
-              <figure
-                onClick={e =>
-                  (e.currentTarget
-                    .parentElement as HTMLElement).classList.toggle('expanded')
-                }>
-                <figcaption>
-                  <strong>{keyValue(keycode)}</strong>
-                  <time>{timestamp}</time>
-                </figcaption>
-
-                <img {...{ src }} />
-              </figure>
-            </aside>
+            <Lightbox
+              id={timestamp.toString()}
+              {...{ src }}
+              caption={
+                <>
+                  <strong>{keyValue(keycode)}</strong>,<time>{timestamp}</time>
+                </>
+              }
+            />
           </figure>
         ))}
+
+      <Lightbox id="analyze" src="" />
     </Wrapper>
   )
 }

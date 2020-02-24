@@ -2,6 +2,7 @@ import * as React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import Journal from './Journal'
+import useCanvas from './useCanvas'
 import Video from './Video'
 
 export const VALID_KEYS = {
@@ -21,14 +22,7 @@ export default () => {
     JSON.parse(window.sessionStorage.getItem('screens') || '[]')
   )
 
-  const { cv, ctx } = useMemo(() => {
-    const cv = document.createElement('canvas') as HTMLCanvasElement
-
-    return {
-      cv,
-      ctx: cv.getContext('2d') as CanvasRenderingContext2D
-    }
-  }, [])
+  const [cv, ctx] = useCanvas()
 
   const takeScreenshot = useCallback(
     (keycode: IScreen['keycode']) => {
