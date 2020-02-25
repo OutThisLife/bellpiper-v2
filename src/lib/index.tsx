@@ -33,7 +33,7 @@ export default () => {
       const screen: IScreen = {
         timestamp: +new Date(),
         keycode,
-        src: cv.toDataURL('image/jpeg', 1)
+        src: cv.toDataURL()
       }
 
       setScreens(st => [...st.filter(s => s), screen])

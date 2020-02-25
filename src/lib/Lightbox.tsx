@@ -53,6 +53,17 @@ const Wrapper = styled.aside`
         margin-right: auto;
         margin-left: 1em;
       }
+
+      textarea {
+        display: block;
+        width: 33vw;
+        height: 10vh;
+        color: inherit;
+        font: inherit;
+        padding: 1em;
+        border: 1px solid #ffffff11;
+        background: none;
+      }
     }
 
     img {
@@ -62,23 +73,21 @@ const Wrapper = styled.aside`
   }
 `
 
-export default ({ id, src, caption }: ILightbox) => {
-  return (
-    <Wrapper {...{ id }}>
-      <a href="#/" />
+export default ({ id, src, caption }: ILightbox) => (
+  <Wrapper {...{ id }}>
+    <a href="#/" />
 
-      <figure
-        onClick={e =>
-          (e.currentTarget.parentElement as HTMLElement).classList.toggle(
-            'expanded'
-          )
-        }>
-        {caption && <figcaption>{caption}</figcaption>}
-        <img {...{ src }} />
-      </figure>
-    </Wrapper>
-  )
-}
+    <figure
+      onClick={e =>
+        (e.currentTarget.parentElement as HTMLElement).classList.toggle(
+          'expanded'
+        )
+      }>
+      {caption && <figcaption>{caption}</figcaption>}
+      <img {...{ src }} />
+    </figure>
+  </Wrapper>
+)
 
 interface ILightbox {
   id: string

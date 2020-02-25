@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 import styled from 'styled-components'
 
 import { IScreen, keyValue } from '.'
@@ -55,6 +55,8 @@ const Wrapper = styled.section`
   }
 `
 
+const OCR = false
+
 export default ({ screens, setScreens }: IJournal) => {
   const [cv, ctx] = useCanvas()
 
@@ -67,29 +69,60 @@ export default ({ screens, setScreens }: IJournal) => {
   const resetScreens = useCallback(() => setScreens([]), [setScreens])
 
   const analyze = useCallback(
-    async ({ currentTarget }) => {
-      const $out = document.querySelector('#analyze img') as HTMLImageElement
-      const $in = currentTarget.offsetParent.querySelector(
-        'img'
-      ) as HTMLImageElement
+    (timestamp: IScreen['timestamp']) => async (e: any) => {
+      e.preventDefault()
 
+      const id = `analyze-${timestamp}`
+      const el = document.getElementById(id) as HTMLElement
+      const $caption = el.querySelector('textarea') as HTMLTextAreaElement
+
+      const $out = el.querySelector('img') as HTMLImageElement
+      const $in = e.currentTarget
+        .closest('figure')
+        .querySelector('img') as HTMLImageElement
+
+      location.hash = id
       cv.width = $in.naturalWidth
       cv.height = $in.naturalHeight
 
-      const worker = window.Tesseract.createWorker({
-        logger: console.log
-      })
-
-      const draw = async ({ top = 0, right = 0, bottom = 0, left = 0 }) => {
+      const crop = async ({ top = 0, right = 0, bottom = 0, left = 0 }) => {
         ctx.clearRect(0, 0, cv.width, cv.height)
 
         cv.width = $in.naturalWidth - right - left
         cv.height = $in.naturalHeight - top - bottom
 
+        ctx.filter = 'saturate(200%)'
         ctx.drawImage($in, -left, -top)
 
-        $out.src = cv.toDataURL('image/jpeg', 1)
-        location.hash = 'analyze'
+        const imgData = ctx.getImageData(0, 0, cv.width, cv.height)
+        const buf = new ArrayBuffer(imgData.data.length)
+        const buf8 = new Uint8ClampedArray(buf)
+        const data = new Uint32Array(buf)
+
+        for (let i = 0, j = 0; i < imgData.data.length; i += 4) {
+          let r = imgData.data[i]
+          let g = imgData.data[i + 1]
+          let b = imgData.data[i + 2]
+
+          data[j] =
+            (r & 0x0f0 ? 0 : g << 24) | // alpha
+            (0 << 16) | // blue
+            (255 << 8) | // green
+            0 // red
+
+          j++
+        }
+
+        imgData.data.set(buf8)
+        ctx.putImageData(imgData, 0, 0)
+
+        $out.src = cv.toDataURL()
+      }
+
+      const read = async () => {
+        const worker = window.Tesseract.createWorker({
+          logger: ({ progress }: any) => ($caption.value = progress)
+        })
 
         try {
           await worker.load()
@@ -100,21 +133,30 @@ export default ({ screens, setScreens }: IJournal) => {
           })
 
           const res = await worker.recognize(cv, {})
-          await worker.terminate()
 
           console.log(res)
+          $caption.value = 'hi'
         } catch (err) {
           console.error(err)
+        } finally {
+          await worker.terminate()
         }
       }
 
-      draw({
+      crop({
         top: 150,
         bottom: 100,
-        left: cv.width * 0.945,
+        left: cv.width - 82,
         right: 30
       })
-      ;(window as any).draw = draw
+      ;(window as any).draw = (args: any = {}) =>
+        crop({
+          top: 150,
+          bottom: 100,
+          left: cv.width - 82,
+          right: 30,
+          ...args
+        })
     },
     [cv, ctx]
   )
@@ -128,12 +170,12 @@ export default ({ screens, setScreens }: IJournal) => {
       {screens
         .sort((a, b) => b.timestamp - a.timestamp)
         .map(({ src, keycode, timestamp }, i) => (
-          <figure key={timestamp}>
+          <figure key={timestamp} onContextMenu={analyze(timestamp)}>
             <figcaption>
               <strong>{keyValue(keycode)}</strong>
               <time>{timestamp}</time>
               <button onClick={deleteScreen(timestamp)}>rm</button>
-              <button onClick={analyze}>anlyz</button>
+              <button onClick={analyze(timestamp)}>anlyz</button>
             </figcaption>
 
             <a href={`#${timestamp}`}>
@@ -149,10 +191,14 @@ export default ({ screens, setScreens }: IJournal) => {
                 </>
               }
             />
+
+            <Lightbox
+              id={`analyze-${timestamp}`}
+              src=""
+              caption={<textarea />}
+            />
           </figure>
         ))}
-
-      <Lightbox id="analyze" src="" />
     </Wrapper>
   )
 }
